@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>Hearth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root { --canvas:#f4f1ec; --surface:#fff; --ink:#1a1714; --muted:#6f675f; --line:#e7e1d8; --primary:#c4321a; --inkbtn:#fffaf7; --soft:#f7f4ef; --good:#1f6b45; --good-soft:#e5f3eb; --warn:#a15c12; --warn-soft:#f8edd9; --bad:#b42318; --bad-soft:#f8e4e1; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:"Plus Jakarta Sans",system-ui,sans-serif; background:var(--canvas); color:var(--ink); min-height:100dvh; }
+  .app { max-width:430px; margin:0 auto; min-height:100dvh; padding:24px 20px 110px; }
+  h1 { font-size:30px; letter-spacing:-.03em; font-weight:800; }
+  .muted { color:var(--muted); font-size:14px; }
+  .hero { margin-top:18px; background:var(--primary); color:var(--inkbtn); border-radius:24px; overflow:hidden; }
+  .hero .pad { padding:20px 20px 16px; }
+  .hero .amt { font-size:40px; font-weight:800; letter-spacing:-.03em; margin-top:8px; }
+  .hero button { width:100%; min-height:48px; border:0; background:rgba(26,23,20,.18); color:inherit; font:inherit; font-weight:700; }
+  .card { background:var(--surface); border-radius:24px; padding:18px; margin-top:12px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .big { font-size:22px; font-weight:800; margin-top:6px; }
+  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; margin-top:12px; }
+  .bar i { display:block; height:100%; background:var(--primary); }
+  .list { background:var(--surface); border-radius:24px; margin-top:10px; overflow:hidden; }
+  .tx { display:flex; gap:12px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); }
+  .tx:last-child { border-bottom:0; }
+  .ico { width:44px; height:44px; border-radius:14px; background:var(--soft); display:grid; place-items:center; font-weight:800; }
+  .name { font-weight:700; }
+  .sub { font-size:12px; color:var(--muted); }
+  .right { margin-left:auto; text-align:right; }
+  .pill { display:inline-block; font-size:11px; font-weight:700; border-radius:99px; padding:2px 8px; }
+  .paid { background:var(--good-soft); color:var(--good); }
+  .soon { background:var(--warn-soft); color:var(--warn); }
+  .over { background:var(--bad-soft); color:var(--bad); }
+  .later { background:var(--soft); color:var(--muted); }
+  .tabs { position:fixed; left:0; right:0; bottom:0; background:rgba(255,255,255,.96); border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(5,1fr); padding:8px 6px calc(10px + env(safe-area-inset-bottom)); max-width:430px; margin:0 auto; }
+  .tabs button { border:0; background:none; font:inherit; font-size:11px; font-weight:700; color:var(--muted); min-height:44px; }
+  .tabs button.on { color:var(--primary); }
+  .btn { border:0; background:var(--primary); color:var(--inkbtn); font:inherit; font-weight:700; border-radius:99px; min-height:44px; padding:0 16px; }
+  .btn.ghost { background:var(--soft); color:var(--ink); }
+  .btn.ink { background:var(--ink); color:var(--inkbtn); }
+  .head { display:flex; align-items:flex-end; justify-content:space-between; }
+  form.card { display:grid; gap:10px; }
+  label { font-size:12px; font-weight:700; color:var(--muted); display:block; }
+  input, select { width:100%; height:44px; margin-top:4px; border:1px solid var(--line); background:var(--soft); border-radius:14px; padding:0 12px; font:inherit; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:12px; }
+  .cal button { min-height:46px; border:0; border-radius:14px; background:var(--surface); font:inherit; font-weight:700; }
+  .cal button.today { background:var(--primary); color:var(--inkbtn); }
+  .cal button.sel { background:var(--ink); color:var(--inkbtn); }
+  .tiny { border:0; background:none; color:var(--primary); font:inherit; font-weight:700; font-size:12px; min-height:32px; }
+  .view { display:none; } .view.on { display:block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="view on" id="home"></section>
+  <section class="view" id="bills"></section>
+  <section class="view" id="calendar"></section>
+  <section class="view" id="loans"></section>
+  <section class="view" id="more"></section>
+</div>
+<nav class="tabs" id="nav">
+  <button class="on" data-v="home">Home</button>
+  <button data-v="bills">Bills</button>
+  <button data-v="calendar">Calendar</button>
+  <button data-v="loans">Loans</button>
+  <button data-v="more">More</button>
+</nav>
+<script>
+const KEY="hearth-phone-v1";
+const money=n=>Number(n).toLocaleString("en-US",{style:"currency",currency:"USD"});
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parse=s=>new Date(s+"T12:00:00");
+const today=new Date();
+function day(n){const last=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();return iso(new Date(today.getFullYear(),today.getMonth(),Math.min(n,last)));}
+const seedBills=()=>[
+  {id:"1",name:"Paycheck",cat:"Income",amount:4200,date:day(15),dir:"in",status:"Paid",rec:"yes"},
+  {id:"2",name:"Rent",cat:"Housing",amount:1850,date:day(1),dir:"out",status:"Paid",rec:"yes"},
+  {id:"3",name:"Puget Sound Energy",cat:"Utilities",amount:112.4,date:day(12),dir:"out",status:"Paid",rec:"yes"},
+  {id:"4",name:"Xfinity",cat:"Phone & internet",amount:89.99,date:day(23),dir:"out",status:"Due",rec:"yes"},
+  {id:"5",name:"Geico",cat:"Insurance",amount:142.18,date:day(28),dir:"out",status:"Due",rec:"yes"},
+  {id:"6",name:"Netflix",cat:"Subscription",amount:15.49,date:day(8),dir:"out",status:"Paid",rec:"yes"}
+];
+const seedDebts=()=>[{id:"d1",name:"Chase Sapphire",bal:2340,apr:24.99,min:75},{id:"d2",name:"Car loan",bal:12800,apr:5.9,min:310}];
+function load(){try{const o=JSON.parse(localStorage.getItem(KEY));if(o&&o.bills)return o;}catch(e){}return{bills:seedBills(),debts:seedDebts(),name:"Ruben"};}
+let state=load();
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function occ(b,y,m){if(b.rec!=="yes"){const d=parse(b.date);return d.getFullYear()===y&&d.getMonth()===m?b.date:null;}const last=new Date(y,m+1,0).getDate();return iso(new Date(y,m,Math.min(parse(b.date).getDate(),last)));}
+function tone(b,when){if(b.status==="Paid"&&(b.rec!=="yes"||b.date===when))return"paid";const due=parse(when);const start=new Date(today.getFullYear(),today.getMonth(),today.getDate());if(due<start)return"over";if((due-start)/86400000<=7)return"soon";return"later";}
+function label(t){return t==="paid"?"Paid":t==="over"?"Overdue":t==="soon"?"Due soon":"Upcoming";}
+function row(b,when,extra=""){const t=tone(b,when);return `<div class="tx"><div class="ico">${b.name[0]}</div><div><div class="name">${b.name}</div><div class="sub">${parse(when).toLocaleDateString("en-US",{month:"short",day:"numeric"})} · ${b.cat}</div></div><div class="right"><div style="font-weight:800">${b.dir==="in"?"+":""}${money(b.amount)}</div><span class="pill ${t}">${label(t)}</span>${extra}</div></div>`;}
+let month=new Date(today.getFullYear(),today.getMonth(),1);
+let unpaid=false, showBill=false, showDebt=false, picked=null, tab="home";
+function render(){
+  const y=today.getFullYear(), m=today.getMonth();
+  const occs=state.bills.map(b=>{const w=occ(b,y,m);return w?{b,w,t:tone(b,w)}:null;}).filter(Boolean);
+  const out=occs.filter(o=>o.b.dir==="out");
+  const inc=occs.filter(o=>o.b.dir==="in").reduce((s,o)=>s+o.b.amount,0);
+  const spend=out.reduce((s,o)=>s+o.b.amount,0);
+  const paid=out.filter(o=>o.t==="paid").reduce((s,o)=>s+o.b.amount,0);
+  const pct=spend?Math.min(100,Math.round(paid/spend*100)):0;
+  const next=out.filter(o=>o.t!=="paid").sort((a,b)=>a.w.localeCompare(b.w))[0];
+  const attn=out.filter(o=>o.t==="over"||o.t==="soon");
+  const fixed=state.bills.filter(b=>b.dir==="out"&&b.rec==="yes").reduce((s,b)=>s+b.amount,0);
+  const debt=state.debts.reduce((s,d)=>s+d.bal,0);
+  const dmin=state.debts.reduce((s,d)=>s+d.min,0);
+  const h=today.getHours();
+  const greet=h<12?"Good morning":h<17?"Good afternoon":"Good evening";
+  document.getElementById("home").innerHTML=`
+    <p class="muted">${today.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
+    <h1 style="margin-top:4px">${greet}, ${state.name}</h1>
+    <p class="muted" style="margin-top:4px">Here’s what’s due at home this month.</p>
+    <div class="hero"><div class="pad"><p style="font-weight:700;opacity:.85">Next bill</p>
+      ${next?`<div class="amt">${money(next.b.amount)}</div><p>${next.b.name} · ${parse(next.w).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</p>`:`<div class="amt" style="font-size:28px">You’re caught up</div>`}
+    </div>${next?`<button data-pay="${next.b.id}">Mark paid</button>`:""}</div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:end"><div><div class="muted">Left after bills</div><div class="big">${money(inc-spend)}</div></div><div style="color:var(--good);font-weight:700">${pct}% paid</div></div><div class="bar"><i style="width:${pct}%"></i></div><p class="sub" style="margin-top:8px">${money(paid)} paid of ${money(spend)}</p></div>
+    <div class="row2"><div class="card"><div class="sub">Every month</div><div class="big">${money(fixed)}</div></div><div class="card"><div class="sub">What you owe</div><div class="big">${money(debt)}</div><div class="sub">${money(dmin)} min / mo</div></div></div>
+    <h2 style="margin:18px 0 0;font-size:18px">Needs a look</h2>
+    <div class="list">${attn.length?attn.map(o=>row(o.b,o.w)).join(""):`<div class="tx"><div class="muted">Nothing overdue or due in 7 days.</div></div>`}</div>`;
+  let list=[...state.bills].sort((a,b)=>a.date.localeCompare(b.date));
+  if(unpaid) list=list.filter(b=>b.status!=="Paid");
+  document.getElementById("bills").innerHTML=`
+    <div class="head"><h1>Bills</h1><button class="btn" id="addBill">+ Add</button></div>
+    <button class="btn ${unpaid?"ink":"ghost"}" id="filt" style="margin-top:12px">${unpaid?"Showing unpaid":"Unpaid only"}</button>
+    ${showBill?`<form class="card" id="bf"><label>Name<input name="name" required></label><div class="grid2"><label>Amount<input name="amount" type="number" step="0.01" required></label><label>Due<input name="date" type="date" required></label></div><div class="grid2"><label>Kind<select name="dir"><option value="out">Bill</option><option value="in">Income</option></select></label><label>Repeats<select name="rec"><option value="yes">Monthly</option><option value="no">Once</option></select></label></div><label>Category<select name="cat"><option>Housing</option><option>Utilities</option><option>Phone & internet</option><option>Insurance</option><option>Subscription</option><option>Other</option><option>Income</option></select></label><button class="btn" type="submit">Save</button></form>`:""}
+    <div class="list">${list.map(b=>row(b,b.date,`<div><button class="tiny" data-pay="${b.id}">Paid</button><button class="tiny" data-del="${b.id}">Delete</button></div>`)).join("")||`<div class="tx muted">No bills</div>`}</div>`;
+  const my=month.getFullYear(), mm=month.getMonth();
+  const start=new Date(my,mm,1).getDay(), days=new Date(my,mm+1,0).getDate();
+  const cells=["S","M","T","W","T","F","S"].map(d=>`<div class="sub" style="text-align:center">${d}</div>`);
+  for(let i=0;i<start;i++) cells.push("<div></div>");
+  for(let d=1;d<=days;d++){const id=`${my}-${String(mm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;const isT=id===iso(today);cells.push(`<button class="${isT?"today":""} ${picked===id?"sel":""}" data-day="${id}">${d}</button>`);}
+  const hits=picked?state.bills.map(b=>({b,w:occ(b,my,mm)})).filter(x=>x.w===picked):[];
+  document.getElementById("calendar").innerHTML=`
+    <div class="head"><h1>${month.toLocaleDateString("en-US",{month:"long"})}</h1><div><button class="btn ghost" id="prev">‹</button> <button class="btn ghost" id="next">›</button></div></div>
+    <div class="cal">${cells.join("")}</div>
+    <div class="list">${hits.length?hits.map(h=>row(h.b,h.w)).join(""):`<div class="tx muted">Tap a day.</div>`}</div>`;
+  document.getElementById("loans").innerHTML=`
+    <div class="head"><h1>Loans</h1><button class="btn" id="addDebt">+ Add</button></div>
+    <p class="muted" style="margin-top:6px">Balances you still carry.</p>
+    ${showDebt?`<form class="card" id="df"><label>Name<input name="name" required></label><div class="grid2"><label>Balance<input name="bal" type="number" step="0.01" required></label><label>APR %<input name="apr" type="number" step="0.01"></label></div><label>Minimum<input name="min" type="number" step="0.01"></label><button class="btn" type="submit">Save</button></form>`:""}
+    ${state.debts.map(d=>`<div class="card"><div class="head"><div class="name">${d.name}</div><button class="tiny" data-ddel="${d.id}">Remove</button></div><div class="amt" style="font-size:28px;font-weight:800;margin-top:8px">${money(d.bal)}</div><div class="sub">APR ${d.apr}% · min ${money(d.min)}</div></div>`).join("")}`;
+  document.getElementById("more").innerHTML=`
+    <h1>More</h1><p class="muted" style="margin-top:6px">Saved on this phone only.</p>
+    <form class="card" id="nf"><label>What should we call you?<input name="name" value="${state.name}"></label><button class="btn" type="submit">Save name</button></form>
+    <button class="btn ghost" id="reset" style="width:100%;margin-top:12px">Reset sample bills</button>`;
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on", v.id===tab));
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on", b.dataset.v===tab));
+}
+document.body.addEventListener("click", e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.dataset.v){tab=t.dataset.v; render();}
+  if(t.dataset.pay){state.bills=state.bills.map(b=>b.id===t.dataset.pay?{...b,status:"Paid"}:b); save(); render();}
+  if(t.dataset.del){const b=state.bills.find(x=>x.id===t.dataset.del); if(b&&confirm("Remove "+b.name+"?")){state.bills=state.bills.filter(x=>x.id!==b.id); save(); render();}}
+  if(t.dataset.ddel){state.debts=state.debts.filter(d=>d.id!==t.dataset.ddel); save(); render();}
+  if(t.dataset.day){picked=t.dataset.day; render();}
+  if(t.id==="addBill"){showBill=!showBill; render();}
+  if(t.id==="filt"){unpaid=!unpaid; render();}
+  if(t.id==="addDebt"){showDebt=!showDebt; render();}
+  if(t.id==="prev"){month=new Date(month.getFullYear(),month.getMonth()-1,1); render();}
+  if(t.id==="next"){month=new Date(month.getFullYear(),month.getMonth()+1,1); render();}
+  if(t.id==="reset"){state.bills=seedBills(); state.debts=seedDebts(); save(); render();}
+});
+document.body.addEventListener("submit", e=>{
+  e.preventDefault();
+  const f=e.target;
+  if(f.id==="bf"){const fd=new FormData(f); state.bills.unshift({id:String(Date.now()),name:fd.get("name"),amount:+fd.get("amount"),date:fd.get("date"),dir:fd.get("dir"),cat:fd.get("cat"),rec:fd.get("rec"),status:"Due"}); showBill=false; save(); render();}
+  if(f.id==="df"){const fd=new FormData(f); state.debts.push({id:"d"+Date.now(),name:fd.get("name"),bal:+fd.get("bal"),apr:+fd.get("apr")||0,min:+fd.get("min")||0}); showDebt=false; save(); render();}
+  if(f.id==="nf"){state.name=new FormData(f).get("name")||"Ruben"; save(); render();}
+});
+render();
+</script>
+</body>
+</html>
